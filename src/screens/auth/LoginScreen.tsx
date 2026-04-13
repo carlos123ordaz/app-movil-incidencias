@@ -36,7 +36,6 @@ interface FormErrors {
 
 export default function LoginScreen() {
     const navigation = useNavigation<any>();
-<<<<<<< HEAD
     const { login, loginWithMicrosoft, isAuthenticated } = useContext(MainContext);
 
     const [email, setEmail] = useState<string>('');
@@ -45,16 +44,6 @@ export default function LoginScreen() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isMicrosoftLoading, setIsMicrosoftLoading] = useState<boolean>(false);
     const [errors, setErrors] = useState<FormErrors>({});
-=======
-    const { login, loginWithMicrosoft, isAuthenticated } = useContext(MainContext) as IMainContext;
-
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string | null>>({});
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -65,13 +54,8 @@ export default function LoginScreen() {
         }
     }, [isAuthenticated]);
 
-<<<<<<< HEAD
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
-=======
-    const validateForm = () => {
-        const newErrors: Record<string, string | null> = {};
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
         if (!email.trim()) {
             newErrors.email = 'El correo electrónico es requerido';
         } else if (!/\S+@\S+\.\S+/.test(email)) {
@@ -103,12 +87,8 @@ export default function LoginScreen() {
         }
         setIsLoading(false);
     };
-<<<<<<< HEAD
 
     const handleMicrosoftLogin = async (): Promise<void> => {
-=======
-    const handleMicrosoftLogin = async () => {
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
         setIsMicrosoftLoading(true);
         setErrors({});
         const result = await loginWithMicrosoft();

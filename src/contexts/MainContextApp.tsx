@@ -1,306 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-<<<<<<< HEAD
 import React, { createContext, useEffect, useState, useRef, ReactNode } from 'react';
-=======
-import React, { createContext, useEffect, useState, useRef } from 'react';
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
 import { login as loginService, microsoftLogin as microsoftLoginService } from '../services/Auth';
 import { savePushToken } from '../services/User';
 import { useNavigation } from '@react-navigation/native';
 import { getMessaging, getToken, onMessage, onNotificationOpenedApp, getInitialNotification } from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-<<<<<<< HEAD
 import { MainContextType, User, LoginResult } from '../types';
 
 export const MainContext = createContext<MainContextType>({} as MainContextType);
 
 interface MainContextAppProps {
-    children: ReactNode;
-}
-
-export const MainContextApp = ({ children }: MainContextAppProps) => {
-    const navigation = useNavigation<any>();
-    const [userData, setUserData] = useState<User | null>(null);
-    const [taskId, setTaskId] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const messaging = getMessaging();
-    const listenersConfigured = useRef<boolean>(false);
-
-    const refreshUserData = async (): Promise<void> => {
-        try {
-            if (!userData?._id) return;
-            const { getUserService } = require('../services/User');
-            const response = await getUserService(userData._id);
-            const updatedUser: User = response.data;
-            setUserData(updatedUser);
-            await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-        } catch (error) {
-            console.error('Error al refrescar datos:', error);
-        }
-    };
-
-    const setupNotifications = async (userId: string): Promise<string | null> => {
-        try {
-            if (Platform.OS === 'android') {
-                const { status } = await Notifications.getPermissionsAsync();
-                if (status !== 'granted') {
-                    const { status: newStatus } = await Notifications.requestPermissionsAsync();
-                    if (newStatus !== 'granted') {
-                        return null;
-                    }
-                }
-            }
-
-            if (Platform.OS === 'android') {
-                await Notifications.setNotificationChannelAsync('incidencias', {
-                    name: 'Incidencias',
-                    importance: Notifications.AndroidImportance.MAX,
-                    vibrationPattern: [0, 250, 250, 250],
-                    lightColor: '#FF231F7C',
-                    sound: 'default',
-                    enableVibrate: true,
-                    showBadge: true,
-                    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-                });
-            }
-
-            const fcmToken = await getToken(messaging);
-            await savePushToken(userId, fcmToken);
-            await AsyncStorage.setItem('fcmToken', fcmToken);
-
-            if (!listenersConfigured.current) {
-                setupNotificationListeners();
-                listenersConfigured.current = true;
-            }
-
-            return fcmToken;
-        } catch (error) {
-            console.error('❌ Error al configurar notificaciones:', JSON.stringify(error));
-            return null;
-        }
-    };
-
-    const setupNotificationListeners = (): (() => void) => {
-        const unsubscribeForeground = onMessage(messaging, async (remoteMessage) => {
-            await Notifications.scheduleNotificationAsync({
-                content: {
-                    title: remoteMessage.notification?.title || 'Nueva notificación',
-                    body: remoteMessage.notification?.body || '',
-                    data: remoteMessage.data,
-                    sound: 'default',
-                    priority: Notifications.AndroidNotificationPriority.MAX,
-                },
-                trigger: null,
-            });
-        });
-
-        const unsubscribeBackground = onNotificationOpenedApp(messaging, (remoteMessage) => {
-            handleNotificationNavigation(remoteMessage.data as Record<string, string>);
-        });
-
-        getInitialNotification(messaging).then((remoteMessage) => {
-            if (remoteMessage) {
-                handleNotificationNavigation(remoteMessage.data as Record<string, string>);
-            }
-        });
-
-        const notificationListener = Notifications.addNotificationResponseReceivedListener(
-            (response) => {
-                handleNotificationNavigation(response.notification.request.content.data as Record<string, string>);
-            }
-        );
-
-        return () => {
-            unsubscribeForeground();
-            unsubscribeBackground();
-            notificationListener.remove();
-        };
-    };
-
-    const handleNotificationNavigation = (data: Record<string, string>): void => {
-        if (data?.type === 'incidencia_revision' && data?.incidenciaId) {
-            navigation.navigate('DetalleIncidencia', { id: data.incidenciaId });
-        }
-    };
-
-    const completeAuthentication = async (accessToken: string, refreshToken: string, user: User): Promise<void> => {
-        await AsyncStorage.multiSet([
-            ['accessToken', accessToken],
-            ['refreshToken', refreshToken],
-            ['user', JSON.stringify(user)]
-        ]);
-
-        setUserData(user);
-        setIsAuthenticated(true);
-
-        const cachedToken = await AsyncStorage.getItem('fcmToken');
-        if (!cachedToken) {
-            await setupNotifications(user._id);
-        } else if (!listenersConfigured.current) {
-            setupNotificationListeners();
-            listenersConfigured.current = true;
-        }
-    };
-
-    const checkAuth = async (): Promise<void> => {
-        try {
-            setIsLoading(true);
-            const accessToken = await AsyncStorage.getItem('accessToken');
-            const userString = await AsyncStorage.getItem('user');
-            const storedTaskId = await AsyncStorage.getItem('taskId');
-
-            if (accessToken && userString) {
-                const user: User = JSON.parse(userString);
-                setUserData(user);
-                setIsAuthenticated(true);
-                setTaskId(storedTaskId);
-
-                const cachedToken = await AsyncStorage.getItem('fcmToken');
-                if (!cachedToken) {
-                    await setupNotifications(user._id);
-                } else {
-                    if (!listenersConfigured.current) {
-                        setupNotificationListeners();
-                        listenersConfigured.current = true;
-                    }
-                }
-            } else {
-                setUserData(null);
-                setIsAuthenticated(false);
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'login' }],
-                });
-            }
-        } catch (error) {
-            console.error('Error al verificar autenticación:', error);
-            setUserData(null);
-            setIsAuthenticated(false);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleLogin = async (correo: string, password: string): Promise<LoginResult> => {
-        try {
-            setIsLoading(true);
-            setError(null);
-
-            const response = await loginService(correo, password);
-            const { accessToken, refreshToken, user } = response.data;
-
-            await completeAuthentication(accessToken, refreshToken, user);
-
-            return { success: true };
-        } catch (error: any) {
-            console.error('Error en login:', JSON.stringify(error));
-            const errorMessage = error.response?.data?.error || 'Error al iniciar sesión';
-            setError(errorMessage);
-            return { success: false, error: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleMicrosoftLogin = async (): Promise<LoginResult> => {
-        try {
-            setIsLoading(true);
-            setError(null);
-
-            const { accessToken, refreshToken, user } = await microsoftLoginService();
-
-            await completeAuthentication(accessToken, refreshToken, user);
-
-            return { success: true };
-        } catch (error: any) {
-            console.error('Error en Microsoft login:', error);
-            const errorMessage = error.message || 'Error al iniciar sesión con Microsoft';
-            setError(errorMessage);
-            return { success: false, error: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleLogout = async (): Promise<void> => {
-        try {
-            await AsyncStorage.multiRemove([
-                'accessToken',
-                'refreshToken',
-                'user',
-                'task',
-                'taskId'
-            ]);
-
-            setUserData(null);
-            setTaskId(null);
-            setIsAuthenticated(false);
-            setError(null);
-
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'login' }],
-            });
-        } catch (error) {
-            console.error('Error al cerrar sesión:', error);
-        }
-    };
-
-    useEffect(() => {
-        checkAuth();
-    }, []);
-
-    return (
-        <MainContext.Provider
-            value={{
-                userData,
-                taskId,
-                isLoading,
-                isAuthenticated,
-                error,
-                setTaskId,
-                refreshUserData,
-                login: handleLogin,
-                loginWithMicrosoft: handleMicrosoftLogin,
-                logout: handleLogout,
-            }}
-        >
-            {children}
-        </MainContext.Provider>
-    );
-=======
-import type { IMainContext, IUser, ILoginResult } from '../types';
-
-export const MainContext = createContext<IMainContext>({} as IMainContext);
-
-interface MainContextAppProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export const MainContextApp = ({ children }: MainContextAppProps) => {
   const navigation = useNavigation<any>();
-  const [userData, setUserData] = useState<IUser | null>(null);
+  const [userData, setUserData] = useState<User | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
   const messaging = getMessaging();
-  const listenersConfigured = useRef(false);
+  const listenersConfigured = useRef<boolean>(false);
 
   const refreshUserData = async (): Promise<void> => {
     try {
-      if (!userData?.userId) return;
+      if (!userData?._id) return;
       const { getUserService } = require('../services/User');
-      const response = await getUserService(userData.userId);
-      const updatedUser = response.data;
+      const response = await getUserService(userData._id);
+      const updatedUser: User = response.data;
       setUserData(updatedUser);
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-    } catch (err) {
-      console.error('Error al refrescar datos:', err);
+    } catch (error) {
+      console.error('Error al refrescar datos:', error);
     }
   };
 
@@ -339,19 +73,19 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
       }
 
       return fcmToken;
-    } catch (err) {
-      console.error('Error al configurar notificaciones:', JSON.stringify(err));
+    } catch (error) {
+      console.error('❌ Error al configurar notificaciones:', JSON.stringify(error));
       return null;
     }
   };
 
-  const setupNotificationListeners = () => {
+  const setupNotificationListeners = (): (() => void) => {
     const unsubscribeForeground = onMessage(messaging, async (remoteMessage) => {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: remoteMessage.notification?.title || 'Nueva notificacion',
+          title: remoteMessage.notification?.title || 'Nueva notificación',
           body: remoteMessage.notification?.body || '',
-          data: remoteMessage.data as Record<string, string>,
+          data: remoteMessage.data,
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority.MAX,
         },
@@ -382,13 +116,13 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
     };
   };
 
-  const handleNotificationNavigation = (data: Record<string, string> | undefined) => {
+  const handleNotificationNavigation = (data: Record<string, string>): void => {
     if (data?.type === 'incidencia_revision' && data?.incidenciaId) {
       navigation.navigate('DetalleIncidencia', { id: data.incidenciaId });
     }
   };
 
-  const completeAuthentication = async (accessToken: string, refreshToken: string, user: IUser) => {
+  const completeAuthentication = async (accessToken: string, refreshToken: string, user: User): Promise<void> => {
     await AsyncStorage.multiSet([
       ['accessToken', accessToken],
       ['refreshToken', refreshToken],
@@ -400,14 +134,14 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
 
     const cachedToken = await AsyncStorage.getItem('fcmToken');
     if (!cachedToken) {
-      await setupNotifications(user.userId);
+      await setupNotifications(user._id);
     } else if (!listenersConfigured.current) {
       setupNotificationListeners();
       listenersConfigured.current = true;
     }
   };
 
-  const checkAuth = async () => {
+  const checkAuth = async (): Promise<void> => {
     try {
       setIsLoading(true);
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -415,14 +149,14 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
       const storedTaskId = await AsyncStorage.getItem('taskId');
 
       if (accessToken && userString) {
-        const user: IUser = JSON.parse(userString);
+        const user: User = JSON.parse(userString);
         setUserData(user);
         setIsAuthenticated(true);
         setTaskId(storedTaskId);
 
         const cachedToken = await AsyncStorage.getItem('fcmToken');
         if (!cachedToken) {
-          await setupNotifications(user.userId);
+          await setupNotifications(user._id);
         } else {
           if (!listenersConfigured.current) {
             setupNotificationListeners();
@@ -437,8 +171,8 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
           routes: [{ name: 'login' }],
         });
       }
-    } catch (err) {
-      console.error('Error al verificar autenticacion:', err);
+    } catch (error) {
+      console.error('Error al verificar autenticación:', error);
       setUserData(null);
       setIsAuthenticated(false);
     } finally {
@@ -446,20 +180,20 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
     }
   };
 
-  const handleLogin = async (email: string, password: string): Promise<ILoginResult> => {
+  const handleLogin = async (correo: string, password: string): Promise<LoginResult> => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await loginService(email, password);
+      const response = await loginService(correo, password);
       const { accessToken, refreshToken, user } = response.data;
 
       await completeAuthentication(accessToken, refreshToken, user);
 
       return { success: true };
-    } catch (err: any) {
-      console.error('Error en login:', JSON.stringify(err));
-      const errorMessage = err.response?.data?.error || 'Error al iniciar sesion';
+    } catch (error: any) {
+      console.error('Error en login:', JSON.stringify(error));
+      const errorMessage = error.response?.data?.error || 'Error al iniciar sesión';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -467,18 +201,19 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
     }
   };
 
-  const handleMicrosoftLogin = async (): Promise<ILoginResult> => {
+  const handleMicrosoftLogin = async (): Promise<LoginResult> => {
     try {
       setIsLoading(true);
       setError(null);
 
       const { accessToken, refreshToken, user } = await microsoftLoginService();
+
       await completeAuthentication(accessToken, refreshToken, user);
 
       return { success: true };
-    } catch (err: any) {
-      console.error('Error en Microsoft login:', err);
-      const errorMessage = err.message || 'Error al iniciar sesion con Microsoft';
+    } catch (error: any) {
+      console.error('Error en Microsoft login:', error);
+      const errorMessage = error.message || 'Error al iniciar sesión con Microsoft';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -505,8 +240,8 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
         index: 0,
         routes: [{ name: 'login' }],
       });
-    } catch (err) {
-      console.error('Error al cerrar sesion:', err);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
     }
   };
 
@@ -532,5 +267,4 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
       {children}
     </MainContext.Provider>
   );
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
 };

@@ -1,27 +1,15 @@
-<<<<<<< HEAD
 // components/AppLoader.tsx
 import React, { useContext, ReactNode } from 'react';
-=======
-import React, { useContext } from 'react';
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { MainContext } from '../contexts/MainContextApp';
 import type { IMainContext } from '../types';
 
 interface AppLoaderProps {
-<<<<<<< HEAD
     children: ReactNode;
 }
 
 export default function AppLoader({ children }: AppLoaderProps) {
     const { isLoading } = useContext(MainContext);
-=======
-    children: React.ReactNode;
-}
-
-export default function AppLoader({ children }: AppLoaderProps) {
-    const { isLoading } = useContext(MainContext) as IMainContext;
->>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
 
     if (isLoading) {
         return (
