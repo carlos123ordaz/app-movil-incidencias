@@ -2,7 +2,6 @@
 import React, { useContext, ReactNode } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { MainContext } from '../contexts/MainContextApp';
-import type { IMainContext } from '../types';
 
 interface AppLoaderProps {
     children: ReactNode;

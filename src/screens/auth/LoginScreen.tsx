@@ -18,7 +18,6 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Rect } from 'react-native-svg';
 import { MainContext } from '../../contexts/MainContextApp';
-import type { IMainContext } from '../../types';
 
 const MicrosoftIcon = () => (
     <Svg width={20} height={20} viewBox="0 0 21 21">

@@ -7,11 +7,12 @@ import { Image } from 'expo-image';
 import HistoryIncidence from '../screens/incidences/HistoryIncidence';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import AsistenciaScreen from '../screens/attendance/AsistenciaScreen';
+import type { MainContextType } from '../types';
 
 const Tab = createBottomTabNavigator();
 
 export default function HomeTabs() {
-    const { isLoading } = useContext(MainContext) as IMainContext;
+    const { isLoading } = useContext(MainContext) as MainContextType;
     if (isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#B1C5FF' }}>
