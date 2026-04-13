@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "876228394061",
+    "project_id": "app-corsusa-2c578",
+    "storage_bucket": "app-corsusa-2c578.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:876228394061:android:3bfefb26ffd1a1b043f004",
+        "android_client_info": {
+          "package_name": "com.carlosordazhoyos.appviaticos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJhtL5UceRIIUTNSxofkE7ymFsoMyt6To"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+<<<<<<< HEAD
+      "Bash(npm install:*)",
+      "Bash(ls \"D:\\\\BOOT\\\\user\\\\CORDAZ\\\\Documents\\\\proyectos\\\\KurtApp\\\\Proyecto-Corsusa\\\\CorsusaMovil\"/index.*)",
+      "Bash(npx tsc:*)"
+=======
+      "Bash(xargs grep:*)",
+      "Bash(find /d/BOOT/user/CORDAZ/Documents/proyectos/KurtApp/ViaticoMovil/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec wc -l {} +)"
+>>>>>>> d9e99e8c4a77c0e13dbe933a1c04802438ee52a9
+    ]
+  }
+}
