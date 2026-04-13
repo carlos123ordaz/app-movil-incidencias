@@ -1,10 +1,7 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Image,
-    Modal,
-    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -17,10 +14,10 @@ import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
 import * as Location from 'expo-location';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MainContext } from '../../contexts/MainContextApp';
 import { CONFIG } from '../../../config';
 import api from '../../services';
+import FaceVerificationCamera, { type CapturedPhoto, type LocationCoords } from './components/FaceVerificationCamera';
 
 moment.locale('es');
 
@@ -39,16 +36,6 @@ interface MarcacionItem {
     valida?: boolean | null;
 }
 
-interface LocationCoords {
-    latitude: number;
-    longitude: number;
-}
-
-interface CapturedPhoto {
-    uri: string;
-    [key: string]: any;
-}
-
 export default function AsistenciaScreen() {
     const { userData, giraActual } = useContext(MainContext);
     const [currentTime, setCurrentTime] = useState(moment());
@@ -57,9 +44,6 @@ export default function AsistenciaScreen() {
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
     const [marcando, setMarcando] = useState<boolean>(false);
     const [showCamera, setShowCamera] = useState<boolean>(false);
-    const [permission, requestPermission] = useCameraPermissions();
-    const cameraRef = useRef<any>(null);
-    const [capturedPhoto, setCapturedPhoto] = useState<CapturedPhoto | null>(null);
     const [verificando, setVerificando] = useState<boolean>(false);
     const [currentLocation, setCurrentLocation] = useState<LocationCoords | null>(null);
 
@@ -130,20 +114,15 @@ export default function AsistenciaScreen() {
         ? `${Math.floor(workedMinutes / 60)}h ${workedMinutes % 60}m`
         : '--';
 
+    const resetVerificationFlow = (): void => {
+        setShowCamera(false);
+        setCurrentLocation(null);
+        setVerificando(false);
+    };
+
     const registrarMarcacion = async (): Promise<void> => {
-        if (marcando) return;
-
-        if (!permission) {
-            Alert.alert('Error', 'No se pudo verificar los permisos de la camara');
+        if (marcando) {
             return;
-        }
-
-        if (!permission.granted) {
-            const { granted } = await requestPermission();
-            if (!granted) {
-                Alert.alert('Permiso denegado', 'Se necesita acceso a la camara para verificar tu identidad');
-                return;
-            }
         }
 
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -172,37 +151,9 @@ export default function AsistenciaScreen() {
         }
     };
 
-    const takePicture = async (): Promise<void> => {
-        if (!cameraRef.current) {
-            return;
-        }
-
-        try {
-            const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.8,
-                base64: false,
-                exif: false,
-            });
-            setCapturedPhoto(photo);
-        } catch (error) {
-            Alert.alert('Error', 'No se pudo capturar la foto');
-            console.error(error);
-        }
-    };
-
-    const retakePicture = (): void => {
-        setCapturedPhoto(null);
-    };
-
-    const closeCameraFlow = (): void => {
-        setShowCamera(false);
-        setCapturedPhoto(null);
-        setCurrentLocation(null);
-    };
-
-    const verificarYMarcar = async (): Promise<void> => {
-        if (!capturedPhoto || !currentLocation || !userData?._id) {
-            return;
+    const handleFaceCapture = async (photo: CapturedPhoto): Promise<boolean> => {
+        if (!userData?._id || !currentLocation) {
+            return false;
         }
 
         setVerificando(true);
@@ -213,7 +164,7 @@ export default function AsistenciaScreen() {
             formData.append('latitude', currentLocation.latitude.toString());
             formData.append('longitude', currentLocation.longitude.toString());
 
-            const photoUri = capturedPhoto.uri;
+            const photoUri = photo.uri;
             const filename = photoUri.split('/').pop() || 'photo.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : 'image/jpeg';
@@ -226,26 +177,23 @@ export default function AsistenciaScreen() {
             );
 
             if (response.data.success && response.data.verified) {
+                resetVerificationFlow();
                 Alert.alert('Exito', response.data.message, [
                     {
                         text: 'OK',
                         onPress: () => {
-                            closeCameraFlow();
                             getAsistencia();
                         },
                     },
                 ]);
-                return;
+                return true;
             }
 
             Alert.alert(
                 'Verificacion fallida',
-                response.data.message || 'No se pudo verificar tu identidad',
-                [
-                    { text: 'Reintentar', onPress: retakePicture },
-                    { text: 'Cancelar', onPress: closeCameraFlow, style: 'cancel' },
-                ]
+                response.data.message || 'No se pudo verificar tu identidad'
             );
+            return false;
         } catch (error: any) {
             console.error('Error al verificar:', JSON.stringify(error));
             const errorMessage =
@@ -253,20 +201,11 @@ export default function AsistenciaScreen() {
                 error.response?.data?.message ||
                 'Error al verificar la asistencia';
 
-            Alert.alert('Error', errorMessage, [
-                { text: 'Reintentar', onPress: retakePicture },
-                { text: 'Cancelar', onPress: closeCameraFlow, style: 'cancel' },
-            ]);
+            Alert.alert('Error', errorMessage);
+            return false;
         } finally {
             setVerificando(false);
         }
-    };
-
-    const cancelarMarcacion = (): void => {
-        Alert.alert('Cancelar', 'Estas seguro de que deseas cancelar?', [
-            { text: 'No', style: 'cancel' },
-            { text: 'Si', onPress: closeCameraFlow },
-        ]);
     };
 
     const renderMarcacion = (marcacion: MarcacionItem) => {
@@ -398,76 +337,12 @@ export default function AsistenciaScreen() {
                 </View>
             </ScrollView>
 
-            <Modal visible={showCamera} animationType="slide" onRequestClose={cancelarMarcacion}>
-                <View style={styles.cameraContainer}>
-                    {!capturedPhoto ? (
-                        <>
-                            <CameraView style={styles.camera} facing="front" ref={cameraRef}>
-                                <View style={styles.cameraOverlay}>
-                                    <View style={styles.cameraHeader}>
-                                        <TouchableOpacity
-                                            style={styles.cameraCloseBtn}
-                                            onPress={cancelarMarcacion}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        >
-                                            <Ionicons name="close" size={26} color="#fff" />
-                                        </TouchableOpacity>
-                                        <Text style={styles.cameraTitle}>Verificacion facial</Text>
-                                        <View style={styles.cameraCloseSpacer} />
-                                    </View>
-                                    <View style={styles.faceGuide}>
-                                        <View style={styles.faceCircle} />
-                                    </View>
-                                    <View style={styles.cameraInstructions}>
-                                        <Text style={styles.instructionText}>Coloca tu rostro dentro del circulo</Text>
-                                        <Text style={styles.instructionSubtext}>Asegurate de estar en un lugar bien iluminado</Text>
-                                    </View>
-                                </View>
-                            </CameraView>
-                            <View style={styles.captureArea}>
-                                <TouchableOpacity style={styles.captureBtn} onPress={takePicture} activeOpacity={0.7}>
-                                    <View style={styles.captureBtnInner} />
-                                </TouchableOpacity>
-                            </View>
-                        </>
-                    ) : (
-                        <>
-                            <Image source={{ uri: capturedPhoto.uri }} style={styles.preview} />
-                            <View style={styles.previewOverlay}>
-                                <View style={styles.previewHeader}>
-                                    <Text style={styles.previewTitle}>Vista previa</Text>
-                                </View>
-                                <View style={styles.previewActions}>
-                                    <TouchableOpacity
-                                        style={styles.retakeBtn}
-                                        onPress={retakePicture}
-                                        disabled={verificando}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="camera-reverse-outline" size={20} color="#111827" />
-                                        <Text style={styles.retakeBtnText}>Repetir</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.verifyBtn, verificando && styles.verifyBtnDisabled]}
-                                        onPress={verificarYMarcar}
-                                        disabled={verificando}
-                                        activeOpacity={0.8}
-                                    >
-                                        {verificando ? (
-                                            <ActivityIndicator size="small" color="#fff" />
-                                        ) : (
-                                            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                                        )}
-                                        <Text style={styles.verifyBtnText}>
-                                            {verificando ? 'Verificando...' : 'Verificar'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </>
-                    )}
-                </View>
-            </Modal>
+            <FaceVerificationCamera
+                visible={showCamera}
+                verifying={verificando}
+                onClose={resetVerificationFlow}
+                onCapture={handleFaceCapture}
+            />
         </>
     );
 }
@@ -544,103 +419,4 @@ const styles = StyleSheet.create({
     marcacionStatusText: { fontSize: 12, fontWeight: '600', color: '#0F8A4B' },
     marcacionStatusTextError: { color: '#C03D3D' },
     bottomSpacer: { height: 24 },
-    cameraContainer: { flex: 1, backgroundColor: '#000' },
-    camera: { flex: 1 },
-    cameraOverlay: { flex: 1, backgroundColor: 'transparent' },
-    cameraHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: Platform.OS === 'ios' ? 54 : 20,
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        backgroundColor: 'rgba(0,0,0,0.25)',
-    },
-    cameraCloseBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cameraTitle: { fontSize: 17, fontWeight: '600', color: '#fff' },
-    cameraCloseSpacer: { width: 40 },
-    faceGuide: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 32,
-    },
-    faceCircle: {
-        width: 260,
-        height: 260,
-        borderRadius: 130,
-        borderWidth: 3,
-        borderColor: 'rgba(16,185,129,0.7)',
-        borderStyle: 'dashed',
-    },
-    cameraInstructions: {
-        alignItems: 'center',
-        paddingHorizontal: 24,
-        paddingBottom: 150,
-    },
-    instructionText: { fontSize: 15, fontWeight: '600', color: '#fff', marginBottom: 6 },
-    instructionSubtext: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.7)',
-        textAlign: 'center',
-        maxWidth: 260,
-        lineHeight: 18,
-    },
-    captureArea: {
-        position: 'absolute',
-        bottom: Platform.OS === 'ios' ? 44 : 32,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-    },
-    captureBtn: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    captureBtnInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#C03D3D' },
-    preview: { flex: 1 },
-    previewOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between' },
-    previewHeader: {
-        paddingTop: Platform.OS === 'ios' ? 54 : 20,
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-    },
-    previewTitle: { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' },
-    previewActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 44 : 32 },
-    retakeBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 15,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-    },
-    retakeBtnText: { fontSize: 15, fontWeight: '600', color: '#111827' },
-    verifyBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 15,
-        borderRadius: 14,
-        backgroundColor: '#0F8A4B',
-    },
-    verifyBtnDisabled: { opacity: 0.7 },
-    verifyBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 });
