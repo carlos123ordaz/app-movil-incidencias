@@ -19,6 +19,7 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { EventRegister } from 'react-native-event-listeners';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '../../contexts/ToastContext';
 import { Incidencia } from '../../types';
 
 moment.locale('es');
@@ -58,6 +59,7 @@ export default function ResolutionPhotosScreen() {
     const [uploading, setUploading] = useState<boolean>(false);
     const [showCamera, setShowCamera] = useState<boolean>(false);
     const MAX_IMAGES = 5;
+    const { toastInfo, toastSuccess, toastError } = useToast();
 
     useEffect(() => {
         const listener = EventRegister.addEventListener('imageAnnotated', (data: any) => {
@@ -75,7 +77,7 @@ export default function ResolutionPhotosScreen() {
             setResolutionImages((prev) => [...prev, imageUri]);
             setShowCamera(false);
         } else {
-            Alert.alert('Límite alcanzado', `Solo puedes agregar hasta ${MAX_IMAGES} imágenes de resolución`);
+            toastInfo(`Solo puedes agregar hasta ${MAX_IMAGES} imágenes de resolución`);
             setShowCamera(false);
         }
     };
@@ -93,18 +95,17 @@ export default function ResolutionPhotosScreen() {
 
     const handleSubmit = async (): Promise<void> => {
         if (resolutionImages.length === 0) {
-            Alert.alert('Error', 'Debes agregar al menos una foto de prueba de resolución');
+            toastInfo('Debes agregar al menos una foto de prueba de resolución');
             return;
         }
         try {
             setUploading(true);
             await incidenciaService.addResolutionImages(incidencia._id, resolutionImages);
-            Alert.alert('Éxito', 'Fotos de resolución agregadas correctamente', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-            ]);
+            toastSuccess('Fotos de resolución agregadas correctamente');
+            navigation.goBack();
         } catch (error) {
             console.error('Error al subir fotos de resolución:', error);
-            Alert.alert('Error', 'No se pudieron subir las fotos. Intenta nuevamente.');
+            toastError('No se pudieron subir las fotos. Intenta nuevamente.');
         } finally {
             setUploading(false);
         }

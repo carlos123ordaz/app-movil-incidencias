@@ -49,6 +49,14 @@ const config: { expo: ExpoConfig } = {
       favicon: './assets/favicon.png',
     },
     plugins: [
+      [
+        'expo-build-properties',
+        {
+          android: {
+            minSdkVersion: 26,
+          },
+        },
+      ],
       'expo-sqlite',
       'expo-notifications',
       '@react-native-firebase/app',

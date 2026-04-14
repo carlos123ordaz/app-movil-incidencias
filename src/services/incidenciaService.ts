@@ -5,13 +5,13 @@ export const incidenciaService = {
     registrarIncidencia: async (reporte: IncidenciaReporte, userId: string): Promise<any> => {
         try {
             const formData = new FormData();
-            formData.append('fecha', report.date.toISOString());
-            formData.append('ubicacion', report.location);
-            formData.append('areaAfectada', report.affectedArea);
-            formData.append('tipoIncidente', report.incidentType);
-            formData.append('gradoSeveridad', report.severityLevel);
-            formData.append('descripcion', report.description);
-            formData.append('recomendacion', report.recommendation || '');
+            formData.append('fecha', reporte.fecha.toISOString());
+            formData.append('ubicacion', reporte.ubicacion);
+            formData.append('areaAfectada', reporte.areaAfectada);
+            formData.append('tipoIncidente', reporte.tipoIncidente);
+            formData.append('gradoSeveridad', reporte.gradoSeveridad);
+            formData.append('descripcion', reporte.descripcion);
+            formData.append('recomendacion', reporte.recomendacion || '');
             formData.append('user', userId);
 
             if (reporte.imagenes && reporte.imagenes.length > 0) {
@@ -76,12 +76,12 @@ export const incidenciaService = {
     updateIncidencia: async (id: string, updateData: Record<string, any>): Promise<any> => {
         try {
             const formData = new FormData();
-            const { images, replaceImages, ...restData } = updateData;
+            const { imagenes, replaceImages, ...restData } = updateData;
 
             Object.keys(restData).forEach(key => {
                 const value = restData[key];
                 if (value !== null && value !== undefined) {
-                    if (key === 'date' && value instanceof Date) {
+                    if (key === 'fecha' && value instanceof Date) {
                         formData.append(key, value.toISOString());
                     } else {
                         formData.append(key, String(value));
@@ -210,7 +210,7 @@ export const incidenciaService = {
             }
 
             const response = await api.post(
-                `/api/incidencias/${incidentId}/resolution-images`,
+                `/api/incidencias/${incidenciaId}/resolution-images`,
                 formData,
                 {
                     headers: {
@@ -228,9 +228,9 @@ export const incidenciaService = {
 
     updateDeadline: async (incidenciaId: string, newDeadline: Date | string, notas: string, userId: string): Promise<any> => {
         try {
-            const response = await api.put(`/api/incidencias/${incidentId}`, {
+            const response = await api.put(`/api/incidencias/${incidenciaId}`, {
                 newDeadline: newDeadline instanceof Date ? newDeadline.toISOString() : newDeadline,
-                notasDeadline: notes || '',
+                notasDeadline: notas || '',
                 user: userId,
             });
 
@@ -243,10 +243,10 @@ export const incidenciaService = {
 
     marcarComoResuelta: async (incidenciaId: string, userId: string, notas = ''): Promise<any> => {
         try {
-            const response = await api.put(`/api/incidencias/${incidentId}`, {
+            const response = await api.put(`/api/incidencias/${incidenciaId}`, {
                 estado: 'Resuelto',
                 user: userId,
-                notasEstado: notes,
+                notasEstado: notas,
             });
 
             return response.data;

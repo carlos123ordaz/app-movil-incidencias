@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SelectList } from 'react-native-dropdown-select-list';
 import moment from 'moment';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '../../contexts/ToastContext';
 import api from '../../services';
 import type { IExpenseFormData } from '../../types';
 const { height: screenHeight } = Dimensions.get('window');
@@ -28,6 +29,7 @@ export default function EditarGastoScreen() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { expense } = route.params || {};
+    const { toastInfo, toastError } = useToast();
     const [loading, setLoading] = useState(false);
     const [showDateModal, setShowDateModal] = useState(false);
     const [tempDate, setTempDate] = useState(new Date());
@@ -63,10 +65,10 @@ export default function EditarGastoScreen() {
 
     useEffect(() => {
         if (!expense) {
-            Alert.alert('Error', 'No se encontró el gasto a editar');
+            toastError('No se encontró el gasto a editar');
             navigation.goBack();
         }
-    }, []);
+    }, [expense, navigation, toastError]);
 
     const viaticoCategories = [
         { key: 'alimentacion', value: 'Alimentación' },
@@ -146,7 +148,7 @@ export default function EditarGastoScreen() {
             setNewItem({ descrip: '', quantity: '1', unitPrice: '' });
             setShowAddItemModal(false);
         } else {
-            Alert.alert('Error', 'Por favor completa todos los campos del item');
+            toastInfo('Por favor completa todos los campos del item');
         }
     };
 
@@ -177,16 +179,16 @@ export default function EditarGastoScreen() {
 
     const handleGuardar = async () => {
         if (!extractedData?.total || extractedData.total <= 0) {
-            Alert.alert('Error', 'El total debe ser mayor a 0');
+            toastInfo('El total debe ser mayor a 0');
             return;
         }
         if (!costCenterAllocations || costCenterAllocations.length === 0) {
-            Alert.alert('Error', 'Debe asignar al menos un centro de costo');
+            toastInfo('Debe asignar al menos un centro de costo');
             return;
         }
         const totalPct = costCenterAllocations.reduce((sum, a) => sum + a.percentage, 0);
         if (totalPct !== 100) {
-            Alert.alert('Error', `Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
+            toastInfo(`Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
             return;
         }
         try {
@@ -199,12 +201,12 @@ export default function EditarGastoScreen() {
             const id = (expense as any)._id || expense.expenseId;
             const response = await api.put(`/api/expenses/${id}`, updatedExpense);
             if (response.data.ok) {
+                toastInfo('Gasto actualizado correctamente');
                 navigation.navigate('HomeTabs', { screen: 'Gastos' });
             }
         } catch (error) {
             console.error('Error al actualizar gasto:', JSON.stringify(error));
-            Alert.alert(
-                'Error',
+            toastError(
                 (error as any).response?.data?.error ||
                 'No se pudo actualizar el gasto. Intenta nuevamente.'
             );

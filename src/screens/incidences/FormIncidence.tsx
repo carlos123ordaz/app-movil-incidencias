@@ -20,6 +20,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation } from '@react-navigation/native';
 import { incidenciaService } from '../../services/incidenciaService';
 import { MainContext } from '../../contexts/MainContextApp';
+import { useToast } from '../../contexts/ToastContext';
 import CameraIncidence from './CameraIncidence';
 import { EventRegister } from 'react-native-event-listeners';
 
@@ -154,6 +155,7 @@ const ProgressIndicator = ({ imagenes, tipoIncidente, gradoSeveridad, areaAfecta
 export default function FormIncidence() {
     const navigation = useNavigation<any>();
     const { userData } = useContext(MainContext);
+    const { toastInfo, toastSuccess, toastError } = useToast();
 
     const [fecha, setFecha] = useState<Date>(new Date());
     const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -205,7 +207,7 @@ export default function FormIncidence() {
         return () => {
             EventRegister.removeEventListener(listener as string);
         };
-    }, [imagenes.length]);
+    }, [imagenes.length, toastInfo]);
 
     const handleConfirmDate = useCallback((date: Date): void => {
         setFecha(date);
@@ -226,14 +228,14 @@ export default function FormIncidence() {
             setImagenes(prev => [...prev, imageUri]);
             setShowCamera(false);
         } else {
-            Alert.alert('Límite alcanzado', `Solo puedes agregar hasta ${MAX_IMAGES} imágenes`);
+            toastInfo(`Solo puedes agregar hasta ${MAX_IMAGES} imágenes`);
             setShowCamera(false);
         }
-    }, [imagenes.length]);
+    }, [imagenes.length, toastInfo]);
 
     const handleAddImage = useCallback((): void => {
         if (imagenes.length >= MAX_IMAGES) {
-            Alert.alert('Límite alcanzado', `Solo puedes agregar hasta ${MAX_IMAGES} imágenes`);
+            toastInfo(`Solo puedes agregar hasta ${MAX_IMAGES} imágenes`);
             return;
         }
         setShowCamera(true);
@@ -261,22 +263,19 @@ export default function FormIncidence() {
             setIsSubmitting(true);
             const reporte = { fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, recomendacion, imagenes };
             await incidenciaService.registrarIncidencia(reporte, userData!._id);
-            Alert.alert(
-                'Incidencia registrada',
-                'Tu reporte ha sido enviado exitosamente',
-                [{ text: 'OK', onPress: () => navigation.navigate('HomeTabs', { screen: 'Incidencias' }) }]
-            );
+            toastSuccess('Tu reporte ha sido enviado exitosamente');
+            navigation.navigate('HomeTabs', { screen: 'Incidencias' });
         } catch (error) {
             console.error('Error al registrar incidencia:', error);
-            Alert.alert('Error', 'No se pudo registrar la incidencia. Intenta nuevamente.');
+            toastError('No se pudo registrar la incidencia. Intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
         }
-    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, recomendacion, imagenes, userData, navigation]);
+    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, recomendacion, imagenes, userData, navigation, toastError, toastSuccess]);
 
     const handleSubmit = useCallback(async (): Promise<void> => {
         if (!fecha || !ubicacion || !areaAfectada || !tipoIncidente || !gradoSeveridad || !descripcion) {
-            Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios (*)');
+            toastInfo('Por favor completa todos los campos obligatorios (*)');
             return;
         }
         if (imagenes.length === 0) {
@@ -291,7 +290,7 @@ export default function FormIncidence() {
             return;
         }
         await submitForm();
-    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, imagenes, submitForm]);
+    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, imagenes, submitForm, toastInfo]);
 
     const renderImageItem = useCallback(({ item, index }: ListRenderItemInfo<string>) => (
         <View style={styles.imageItem}>

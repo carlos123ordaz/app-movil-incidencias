@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import moment from 'moment';
 import { MainContext } from '../../contexts/MainContextApp';
+import { useToast } from '../../contexts/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createExpense } from '../../services/Gastos';
 import type { IMainContext, IExpenseFormData, IExpense, IExpenseItem } from '../../types';
@@ -108,6 +109,7 @@ const CustomTextInput = ({ icon, label, value, onChangeText, placeholder, keyboa
 export default function AgregarGastoScreen() {
     const navigation = useNavigation<any>();
     const { taskId, userData } = useContext(MainContext) as IMainContext;
+    const { toastInfo, toastSuccess, toastError } = useToast();
     const [loading, setLoading] = useState(false);
     const [showDateModal, setShowDateModal] = useState(false);
     const [tempDate, setTempDate] = useState(new Date());
@@ -282,9 +284,9 @@ export default function AgregarGastoScreen() {
             });
             setShowAddItemModal(false);
         } else {
-            Alert.alert('Campos incompletos', 'Por favor completa todos los campos del item');
+            toastInfo('Por favor completa todos los campos del item');
         }
-    }, [newItem]);
+    }, [newItem, toastInfo]);
 
     const eliminarItem = useCallback((index) => {
         Alert.alert(
@@ -319,33 +321,33 @@ export default function AgregarGastoScreen() {
 
     const handleGuardar = useCallback(async () => {
         if (!taskId) {
-            Alert.alert('Error', 'Debe ingresar el ID de la tarea');
+            toastInfo('Debe ingresar el ID de la tarea');
             return;
         }
         if (!extractedData.total || extractedData.total <= 0) {
-            Alert.alert('Error', 'El total debe ser mayor a cero');
+            toastInfo('El total debe ser mayor a cero');
             return;
         }
         if (!extractedData.category) {
-            Alert.alert('Error', 'Debe elegir una categoría');
+            toastInfo('Debe elegir una categoría');
             return;
         }
         if (!extractedData.currencyCode) {
-            Alert.alert('Error', 'Seleccione una moneda');
+            toastInfo('Seleccione una moneda');
             return;
         }
         if (!extractedData.descrip || !extractedData.descrip.trim()) {
-            Alert.alert('Error', 'Agregue una descripción');
+            toastInfo('Agregue una descripción');
             return;
         }
         if (!costCenterAllocations || costCenterAllocations.length === 0) {
-            Alert.alert('Error', 'Debe asignar al menos un centro de costo');
+            toastInfo('Debe asignar al menos un centro de costo');
             return;
         }
 
         const totalPct = costCenterAllocations.reduce((sum, a) => sum + a.percentage, 0);
         if (totalPct !== 100) {
-            Alert.alert('Error', `Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
+            toastInfo(`Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
             return;
         }
         setLoading(true);
@@ -382,20 +384,19 @@ export default function AgregarGastoScreen() {
                 'lastCostCenterAllocations',
                 JSON.stringify(costCenterAllocations)
             );
-            Alert.alert('Éxito', 'Gasto registrado correctamente', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            toastSuccess('Gasto registrado correctamente');
+            navigation.goBack();
         } catch (error: any) {
             const serverMsg = error?.response?.data?.message
                 ?? error?.response?.data
                 ?? error?.message
                 ?? 'Error desconocido';
             console.log('Error al guardar gasto:', JSON.stringify(error?.response?.data ?? error));
-            Alert.alert('Error al guardar', String(serverMsg));
+            toastError(String(serverMsg));
         } finally {
             setLoading(false);
         }
-    }, [taskId, extractedData, userData, navigation, costCenterAllocations]);
+    }, [taskId, extractedData, userData, navigation, costCenterAllocations, toastError, toastInfo, toastSuccess]);
 
     const handleEditTotal = useCallback(() => {
         setTempTotal(extractedData?.total?.toString() || '0');

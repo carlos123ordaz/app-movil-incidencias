@@ -41,13 +41,18 @@ type DetectionStatus =
     | 'hold-still'
     | 'capturing'
     | 'verifying'
+    | 'error'
     | 'no-device'
     | 'no-permission';
 
 interface FaceVerificationCameraProps {
     visible: boolean;
     verifying: boolean;
+    locationReady: boolean;
+    locating: boolean;
+    errorMessage: string | null;
     onClose: () => void;
+    onRetry: () => void;
     onCapture: (photo: CapturedPhoto) => Promise<boolean>;
 }
 
@@ -58,7 +63,11 @@ const STABLE_FRAMES_REQUIRED = 4;
 export default function FaceVerificationCamera({
     visible,
     verifying,
+    locationReady,
+    locating,
+    errorMessage,
     onClose,
+    onRetry,
     onCapture,
 }: FaceVerificationCameraProps) {
     const { width, height } = useWindowDimensions();
@@ -108,14 +117,14 @@ export default function FaceVerificationCamera({
     }, [visible, device]);
 
     useEffect(() => {
-        if (!visible || verifying) {
+        if (!visible || verifying || errorMessage) {
             return;
         }
 
         if (permissionStatus === 'granted' && device) {
             setStatus((current) => (current === 'capturing' ? current : 'detecting'));
         }
-    }, [visible, verifying, permissionStatus, device]);
+    }, [visible, verifying, errorMessage, permissionStatus, device]);
 
     const faceDetectionOptions: FrameFaceDetectionOptions = {
         performanceMode: 'fast',
@@ -132,6 +141,8 @@ export default function FaceVerificationCamera({
 
     const getStatusMessage = (): string => {
         if (verifying) return 'Verificando identidad...';
+        if (locating || !locationReady) return 'Obteniendo ubicacion...';
+        if (errorMessage) return errorMessage;
 
         switch (status) {
             case 'no-face':
@@ -156,7 +167,7 @@ export default function FaceVerificationCamera({
     };
 
     const capturePhoto = async () => {
-        if (!cameraRef.current || isCapturing || verifying) {
+        if (!cameraRef.current || isCapturing || verifying || errorMessage || !locationReady) {
             return;
         }
 
@@ -174,12 +185,12 @@ export default function FaceVerificationCamera({
 
             if (!success) {
                 stableFramesRef.current = 0;
-                setStatus('detecting');
+                setStatus('error');
             }
         } catch (error) {
             console.error('Error al capturar foto:', error);
             stableFramesRef.current = 0;
-            setStatus('detecting');
+            setStatus('error');
         } finally {
             setIsCapturing(false);
             lastCaptureAtRef.current = Date.now();
@@ -187,7 +198,7 @@ export default function FaceVerificationCamera({
     };
 
     const handleFacesDetection = (faces: Face[]) => {
-        if (!visible || verifying || isCapturing) {
+        if (!visible || verifying || isCapturing || errorMessage || !locationReady) {
             return;
         }
 
@@ -250,9 +261,22 @@ export default function FaceVerificationCamera({
     };
 
     const guideBorderColor =
+        errorMessage
+            ? '#F87171'
+            : !locationReady
+                ? 'rgba(255,255,255,0.4)'
+            : 
         status === 'align-face' || status === 'move-closer' || status === 'multiple-faces'
             ? 'rgba(255,255,255,0.55)'
             : '#22C55E';
+
+    const handleRetryPress = () => {
+        stableFramesRef.current = 0;
+        lastCaptureAtRef.current = 0;
+        setIsCapturing(false);
+        setStatus('detecting');
+        onRetry();
+    };
 
     return (
         <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -289,21 +313,22 @@ export default function FaceVerificationCamera({
                             {(verifying || isCapturing) && <ActivityIndicator size="small" color="#FFFFFF" />}
                             <Text style={styles.statusText}>{getStatusMessage()}</Text>
                         </View>
-                        <Text style={styles.helperText}>La captura se envia automaticamente cuando el rostro esta listo.</Text>
+                        <Text style={styles.helperText}>
+                            {!locationReady
+                                ? 'Abriendo la camara mientras obtenemos tu ubicacion actual.'
+                                : errorMessage
+                                ? 'Corrige el problema y vuelve a iniciar la deteccion cuando estes listo.'
+                                : 'La captura se envia automaticamente cuando el rostro esta listo.'}
+                        </Text>
+                        {errorMessage && (
+                            <TouchableOpacity style={styles.retryButton} onPress={handleRetryPress} activeOpacity={0.85}>
+                                <Ionicons name="refresh" size={18} color="#111827" />
+                                <Text style={styles.retryButtonText}>Volver a intentar</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 
-                <View style={styles.captureArea}>
-                    <TouchableOpacity
-                        style={[styles.manualButton, (verifying || isCapturing) && styles.manualButtonDisabled]}
-                        onPress={capturePhoto}
-                        activeOpacity={0.85}
-                        disabled={verifying || isCapturing || permissionStatus !== 'granted' || !device}
-                    >
-                        <Ionicons name="camera-outline" size={18} color="#111827" />
-                        <Text style={styles.manualButtonText}>Capturar manualmente</Text>
-                    </TouchableOpacity>
-                </View>
             </View>
         </Modal>
     );
@@ -348,7 +373,7 @@ const styles = StyleSheet.create({
     instructionsBlock: {
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingBottom: 152,
+        paddingBottom: Platform.OS === 'ios' ? 72 : 56,
     },
     statusPill: {
         minHeight: 46,
@@ -369,25 +394,20 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         maxWidth: 280,
     },
-    captureArea: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: Platform.OS === 'ios' ? 44 : 28,
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    manualButton: {
+    retryButton: {
+        marginTop: 16,
+        minHeight: 44,
+        paddingHorizontal: 18,
+        borderRadius: 999,
+        backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        width: '100%',
-        maxWidth: 280,
-        backgroundColor: 'rgba(255,255,255,0.94)',
-        borderRadius: 18,
-        paddingVertical: 14,
     },
-    manualButtonDisabled: { opacity: 0.6 },
-    manualButtonText: { fontSize: 14, fontWeight: '700', color: '#111827' },
+    retryButtonText: {
+        color: '#111827',
+        fontSize: 14,
+        fontWeight: '700',
+    },
 });

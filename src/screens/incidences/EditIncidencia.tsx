@@ -18,6 +18,7 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useToast } from '../../contexts/ToastContext';
 import { incidenciaService } from '../../services/incidenciaService';
 import CameraIncidence from './CameraIncidence';
 import { EventRegister } from 'react-native-event-listeners';
@@ -97,6 +98,7 @@ export default function EditIncidencia() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { id } = route.params as { id: string };
+    const { toastInfo, toastSuccess, toastError } = useToast();
 
     const [loading, setLoading] = useState<boolean>(true);
     const [fecha, setFecha] = useState<Date>(new Date());
@@ -148,7 +150,7 @@ export default function EditIncidencia() {
         const listener = EventRegister.addEventListener('imageAnnotated', (data: any) => {
             if (data.returnScreen === 'EditIncidencia' && data.annotatedUri && imagenes.length < MAX_IMAGES) {
                 setImagenes(prev => [...prev, data.annotatedUri]);
-                Alert.alert('Imagen agregada', 'La imagen anotada se agregó correctamente');
+                toastSuccess('La imagen anotada se agregó correctamente');
             }
         });
         return () => {
@@ -172,7 +174,7 @@ export default function EditIncidencia() {
             setImagenesOriginales(existingImages);
         } catch (error) {
             console.error('Error al cargar incidencia:', error);
-            Alert.alert('Error', 'No se pudo cargar la incidencia');
+            toastError('No se pudo cargar la incidencia');
             navigation.goBack();
         } finally {
             setLoading(false);
@@ -198,14 +200,14 @@ export default function EditIncidencia() {
             setImagenes(prev => [...prev, imageUri]);
             setShowCamera(false);
         } else {
-            Alert.alert('Límite alcanzado', `Solo puedes tener hasta ${MAX_IMAGES} imágenes`);
+            toastInfo(`Solo puedes tener hasta ${MAX_IMAGES} imágenes`);
             setShowCamera(false);
         }
     }, [imagenes.length]);
 
     const handleAddImage = useCallback((): void => {
         if (imagenes.length >= MAX_IMAGES) {
-            Alert.alert('Límite alcanzado', `Solo puedes tener hasta ${MAX_IMAGES} imágenes`);
+            toastInfo(`Solo puedes tener hasta ${MAX_IMAGES} imágenes`);
             return;
         }
         setShowCamera(true);
@@ -228,7 +230,7 @@ export default function EditIncidencia() {
 
     const handleSubmit = useCallback(async (): Promise<void> => {
         if (!fecha || !ubicacion || !areaAfectada || !tipoIncidente || !gradoSeveridad || !descripcion) {
-            Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios (*)');
+            toastInfo('Por favor completa todos los campos obligatorios (*)');
             return;
         }
 
@@ -243,18 +245,15 @@ export default function EditIncidencia() {
             }
 
             await incidenciaService.updateIncidencia(id, updateData);
-            Alert.alert(
-                'Incidencia actualizada',
-                'Los cambios se guardaron correctamente',
-                [{ text: 'OK', onPress: () => navigation.navigate('HomeTabs', { screen: 'Incidencias' }) }]
-            );
+            toastSuccess('Los cambios se guardaron correctamente');
+            navigation.navigate('HomeTabs', { screen: 'Incidencias' });
         } catch (error) {
             console.error('Error al actualizar incidencia:', error);
-            Alert.alert('Error', 'No se pudo actualizar la incidencia. Intenta nuevamente.');
+            toastError('No se pudo actualizar la incidencia. Intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
         }
-    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, recomendacion, imagenes, imagenesOriginales, id, navigation]);
+    }, [fecha, ubicacion, areaAfectada, tipoIncidente, gradoSeveridad, descripcion, recomendacion, imagenes, imagenesOriginales, id, navigation, toastError, toastInfo, toastSuccess]);
 
     const renderImageItem = useCallback(({ item, index }: ListRenderItemInfo<string>) => (
         <View style={styles.imageItem}>

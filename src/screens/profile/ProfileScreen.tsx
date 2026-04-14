@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { MainContext } from '../../contexts/MainContextApp';
 import { useNavigation } from '@react-navigation/native';
+import { useToast } from '../../contexts/ToastContext';
 import { UserArea } from '../../types';
 
 interface MenuItemProps {
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
     const { userData, refreshUserData, logout } = useContext(MainContext);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const navigation = useNavigation<any>();
+    const { toastError, toastInfo } = useToast();
 
     const onRefresh = async (): Promise<void> => {
         setRefreshing(true);
@@ -43,7 +45,7 @@ export default function ProfileScreen() {
                 await refreshUserData();
             }
         } catch (error) {
-            alert('Error al actualizar datos');
+            toastError('Error al actualizar datos');
         } finally {
             setRefreshing(false);
         }
@@ -143,7 +145,7 @@ export default function ProfileScreen() {
                         icon="create-outline"
                         title="Editar Perfil"
                         onPress={() => {
-                            Alert.alert('Funcionalidad no disponible', 'Esta funcionalidad no está disponible en este momento.');
+                            toastInfo('Esta funcionalidad no está disponible en este momento.');
                         }}
                     />
                     <Divider />
@@ -162,7 +164,7 @@ export default function ProfileScreen() {
                         icon="notifications-outline"
                         title="Gestionar Notificaciones"
                         onPress={() => {
-                            Alert.alert('Funcionalidad no disponible', 'Esta funcionalidad no está disponible en este momento.');
+                            toastInfo('Esta funcionalidad no está disponible en este momento.');
                         }}
                     />
                 </View>

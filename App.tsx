@@ -3,6 +3,7 @@ import { PaperProvider } from 'react-native-paper';
 import RootNavigator from './src/navigation/RootNavigator';
 import { customTheme } from './src/theme/customTheme';
 import { MainContextApp } from './src/contexts/MainContextApp';
+import { ToastProvider } from './src/contexts/ToastContext';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 
@@ -25,11 +26,13 @@ Notifications.setNotificationHandler({
 export default function App() {
   return (
     <PaperProvider theme={customTheme}>
-      <NavigationContainer>
-        <MainContextApp>
-          <RootNavigator />
-        </MainContextApp>
-      </NavigationContainer>
+      <ToastProvider>
+        <NavigationContainer>
+          <MainContextApp>
+            <RootNavigator />
+          </MainContextApp>
+        </NavigationContainer>
+      </ToastProvider>
     </PaperProvider>
   );
 }

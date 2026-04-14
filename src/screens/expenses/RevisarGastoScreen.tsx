@@ -20,6 +20,7 @@ import { SelectList } from 'react-native-dropdown-select-list';
 import { captureVoucher, createExpense } from '../../services/Gastos';
 import moment from 'moment';
 import { MainContext } from '../../contexts/MainContextApp';
+import { useToast } from '../../contexts/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { IMainContext, IExpenseFormData, IExpenseItem } from '../../types';
 
@@ -145,6 +146,7 @@ export default function RevisarGastoScreen() {
     const [tempDetraction, setTempDetraction] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const { taskId, userData } = useContext(MainContext) as IMainContext;
+    const { toastInfo, toastSuccess, toastError } = useToast();
 
     const [costCenterAllocations, setCostCenterAllocations] = useState<any[]>([]);
 
@@ -308,7 +310,7 @@ export default function RevisarGastoScreen() {
             setNewItem({ descrip: '', subtotal: 0, quantity: 1, unitPrice: 0 });
             setShowAddItemModal(false);
         } else {
-            Alert.alert('Error', 'Por favor completa todos los campos del item');
+            toastInfo('Por favor completa todos los campos del item');
         }
     };
 
@@ -342,24 +344,24 @@ export default function RevisarGastoScreen() {
     const handleGuardar = async () => {
         if (isSaving) return;
         if (!taskId) {
-            Alert.alert('Error', 'Debe ingresar el ID de la tarea', [{ text: 'OK' }]);
+            toastInfo('Debe ingresar el ID de la tarea');
             return;
         }
         if (!extractedData?.total || extractedData.total === 0) {
-            Alert.alert('Error', 'Debe ingresar un total válido');
+            toastInfo('Debe ingresar un total válido');
             return;
         }
         if (!extractedData?.descrip) {
-            Alert.alert('Error', 'Debe ingresar una descripción');
+            toastInfo('Debe ingresar una descripción');
             return;
         }
         if (!costCenterAllocations || costCenterAllocations.length === 0) {
-            Alert.alert('Error', 'Debe asignar al menos un centro de costo');
+            toastInfo('Debe asignar al menos un centro de costo');
             return;
         }
         const totalPct = costCenterAllocations.reduce((sum, a) => sum + a.percentage, 0);
         if (totalPct !== 100) {
-            Alert.alert('Error', `Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
+            toastInfo(`Los porcentajes deben sumar 100% (actual: ${totalPct}%)`);
             return;
         }
         setIsSaving(true);
@@ -373,16 +375,12 @@ export default function RevisarGastoScreen() {
             };
             await createExpense(expenseData);
             setIsSaving(false);
-            Alert.alert('Éxito', 'El gasto ha sido guardado correctamente', [
-                {
-                    text: 'OK',
-                    onPress: () => navigation.navigate('HomeTabs', { screen: 'Gastos' }),
-                },
-            ]);
+            toastSuccess('El gasto ha sido guardado correctamente');
+            navigation.navigate('HomeTabs', { screen: 'Gastos' });
         } catch (error) {
             setIsSaving(false);
             console.error('Error al guardar:', JSON.stringify(error));
-            Alert.alert('Error', 'No se pudo guardar el gasto. Intenta nuevamente.');
+            toastError('No se pudo guardar el gasto. Intenta nuevamente.');
         }
     };
 

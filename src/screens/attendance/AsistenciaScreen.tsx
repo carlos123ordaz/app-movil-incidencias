@@ -1,7 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -14,7 +13,9 @@ import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
 import * as Location from 'expo-location';
+import { Camera as VisionCamera } from 'react-native-vision-camera';
 import { MainContext } from '../../contexts/MainContextApp';
+import { useToast } from '../../contexts/ToastContext';
 import { CONFIG } from '../../../config';
 import api from '../../services';
 import FaceVerificationCamera, { type CapturedPhoto, type LocationCoords } from './components/FaceVerificationCamera';
@@ -36,6 +37,18 @@ interface MarcacionItem {
     valida?: boolean | null;
 }
 
+interface AttendanceMarkResponse {
+    success?: boolean;
+    verified?: boolean;
+    tipo?: 'entrada' | 'salida';
+    timestamp?: string;
+    message?: string;
+    attendance?: AsistenciaData | null;
+    validacion_ubicacion?: {
+        valido?: boolean;
+    } | null;
+}
+
 export default function AsistenciaScreen() {
     const { userData, giraActual } = useContext(MainContext);
     const [currentTime, setCurrentTime] = useState(moment());
@@ -46,6 +59,9 @@ export default function AsistenciaScreen() {
     const [showCamera, setShowCamera] = useState<boolean>(false);
     const [verificando, setVerificando] = useState<boolean>(false);
     const [currentLocation, setCurrentLocation] = useState<LocationCoords | null>(null);
+    const [isLocating, setIsLocating] = useState<boolean>(false);
+    const [verificationError, setVerificationError] = useState<string | null>(null);
+    const { toastInfo, toastError } = useToast();
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -61,6 +77,26 @@ export default function AsistenciaScreen() {
         }
     }, [userData?._id]);
 
+    useEffect(() => {
+        const preloadPermissions = async () => {
+            try {
+                const locationPermission = await Location.getForegroundPermissionsAsync();
+                if (locationPermission.status !== 'granted') {
+                    await Location.requestForegroundPermissionsAsync();
+                }
+
+                let cameraPermission = await VisionCamera.getCameraPermissionStatus();
+                if (cameraPermission !== 'granted') {
+                    cameraPermission = await VisionCamera.requestCameraPermission();
+                }
+            } catch (error) {
+                console.log('No se pudieron precargar permisos:', error);
+            }
+        };
+
+        preloadPermissions();
+    }, []);
+
     const getAsistencia = async (): Promise<void> => {
         if (!userData?._id) {
             return;
@@ -72,7 +108,7 @@ export default function AsistenciaScreen() {
             setAsistencia(res.data?.data ?? null);
         } catch (error) {
             console.log(error);
-            Alert.alert('Error', 'No se pudo cargar la asistencia de hoy');
+            toastError('No se pudo cargar la asistencia de hoy');
         } finally {
             setLoading(false);
             setIsRefreshing(false);
@@ -117,22 +153,72 @@ export default function AsistenciaScreen() {
     const resetVerificationFlow = (): void => {
         setShowCamera(false);
         setCurrentLocation(null);
+        setIsLocating(false);
+        setVerificando(false);
+        setVerificationError(null);
+    };
+
+    const retryVerificationFlow = (): void => {
+        setVerificationError(null);
         setVerificando(false);
     };
 
-    const registrarMarcacion = async (): Promise<void> => {
-        if (marcando) {
-            return;
+    const buildAttendanceFromResponse = (response: AttendanceMarkResponse): AsistenciaData | null => {
+        if (response.attendance) {
+            return response.attendance;
         }
 
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Permiso denegado', 'Se necesita acceso a la ubicacion para marcar asistencia');
+        if (!response.tipo || !response.timestamp) {
+            return null;
+        }
+
+        const isValid = response.validacion_ubicacion?.valido ?? null;
+
+        if (response.tipo === 'entrada') {
+            return {
+                entrada: response.timestamp,
+                salida: null,
+                horas_trabajadas: null,
+                valido_entrada: isValid,
+                valido_salida: null,
+            };
+        }
+
+        return {
+            ...(asistencia ?? {}),
+            salida: response.timestamp,
+            horas_trabajadas: typeof asistencia?.entrada === 'string'
+                ? Math.max(0, moment(response.timestamp).diff(moment(asistencia.entrada), 'minutes')) / 60
+                : asistencia?.horas_trabajadas ?? null,
+            valido_salida: isValid,
+        };
+    };
+
+    const registrarMarcacion = async (): Promise<void> => {
+        if (marcando || isLocating) {
             return;
         }
 
         setMarcando(true);
+        setIsLocating(true);
+        setCurrentLocation(null);
+        setVerificationError(null);
+        setShowCamera(true);
         try {
+            const permission = await Location.getForegroundPermissionsAsync();
+            let permissionStatus = permission.status;
+
+            if (permissionStatus !== 'granted') {
+                const requestedPermission = await Location.requestForegroundPermissionsAsync();
+                permissionStatus = requestedPermission.status;
+            }
+
+            if (permissionStatus !== 'granted') {
+                setShowCamera(false);
+                toastInfo('Se necesita acceso a la ubicacion para marcar asistencia');
+                return;
+            }
+
             const loc = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.Balanced,
                 maximumAge: 10000,
@@ -143,20 +229,23 @@ export default function AsistenciaScreen() {
                 latitude: loc.coords.latitude,
                 longitude: loc.coords.longitude,
             });
-            setShowCamera(true);
         } catch (error) {
-            Alert.alert('Error', 'No se pudo obtener tu ubicacion. Intenta de nuevo.');
+            setShowCamera(false);
+            toastError('No se pudo obtener tu ubicacion. Intenta de nuevo.');
         } finally {
+            setIsLocating(false);
             setMarcando(false);
         }
     };
 
     const handleFaceCapture = async (photo: CapturedPhoto): Promise<boolean> => {
         if (!userData?._id || !currentLocation) {
+            setVerificationError('No se pudo preparar la verificacion. Intenta nuevamente.');
             return false;
         }
 
         setVerificando(true);
+        setVerificationError(null);
         try {
             const formData = new FormData();
             formData.append('userId', userData._id);
@@ -170,27 +259,23 @@ export default function AsistenciaScreen() {
             const type = match ? `image/${match[1]}` : 'image/jpeg';
             formData.append('photo', { uri: photoUri, name: filename, type } as any);
 
-            const response = await axios.post(
+            const response = await axios.post<AttendanceMarkResponse>(
                 `${CONFIG.fastapi_url}/api/attendance/marcar`,
                 formData,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
             if (response.data.success && response.data.verified) {
+                const nextAttendance = buildAttendanceFromResponse(response.data);
+                if (nextAttendance) {
+                    setAsistencia(nextAttendance);
+                }
                 resetVerificationFlow();
-                Alert.alert('Exito', response.data.message, [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            getAsistencia();
-                        },
-                    },
-                ]);
+                toastInfo(response.data.message || 'Asistencia registrada correctamente');
                 return true;
             }
 
-            Alert.alert(
-                'Verificacion fallida',
+            setVerificationError(
                 response.data.message || 'No se pudo verificar tu identidad'
             );
             return false;
@@ -201,7 +286,7 @@ export default function AsistenciaScreen() {
                 error.response?.data?.message ||
                 'Error al verificar la asistencia';
 
-            Alert.alert('Error', errorMessage);
+            setVerificationError(errorMessage);
             return false;
         } finally {
             setVerificando(false);
@@ -340,7 +425,11 @@ export default function AsistenciaScreen() {
             <FaceVerificationCamera
                 visible={showCamera}
                 verifying={verificando}
+                locationReady={!!currentLocation}
+                locating={isLocating}
+                errorMessage={verificationError}
                 onClose={resetVerificationFlow}
+                onRetry={retryVerificationFlow}
                 onCapture={handleFaceCapture}
             />
         </>
