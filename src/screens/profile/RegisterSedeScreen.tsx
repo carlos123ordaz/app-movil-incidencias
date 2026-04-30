@@ -148,11 +148,12 @@ export default function RegisterSedeScreen() {
                 animationType="fade"
                 onRequestClose={() => setModalVisible(false)}
             >
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.overlay}>
-                        <KeyboardAvoidingView
-                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        >
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                        <View style={styles.overlay}>
                             <TouchableWithoutFeedback>
                                 <View style={styles.modalCard}>
                                     <Text style={styles.modalTitle}>Nombre de la sede</Text>
@@ -190,9 +191,9 @@ export default function RegisterSedeScreen() {
                                     </View>
                                 </View>
                             </TouchableWithoutFeedback>
-                        </KeyboardAvoidingView>
-                    </View>
-                </TouchableWithoutFeedback>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );
