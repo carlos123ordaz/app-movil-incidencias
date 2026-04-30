@@ -27,9 +27,10 @@ export const MainContextApp = ({ children }: MainContextAppProps) => {
 
   const refreshUserData = async (): Promise<void> => {
     try {
-      if (!userData?._id) return;
+      const userId = userData?._id || (userData as any)?.userId;
+      if (!userId) return;
       const { getUserService } = require('../services/User');
-      const response = await getUserService(userData._id);
+      const response = await getUserService(userId);
       const updatedUser: User = response.data;
       setUserData(updatedUser);
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));

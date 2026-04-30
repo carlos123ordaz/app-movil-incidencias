@@ -11,6 +11,7 @@ import AsignedIncidenceDetail from '../screens/incidences/AsignedIncidenceDetail
 import ResolutionPhotosScreen from '../screens/incidences/ResolutionPhotosScreen';
 import ImageAnnotationScreen from '../screens/incidences/ImageAnnotationScreen';
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
+import RegisterSedeScreen from '../screens/profile/RegisterSedeScreen';
 import { RootStackParamList } from '../types';
 
 // ─── NUEVO ───
@@ -115,6 +116,15 @@ export default function RootNavigator() {
                     headerShown: true,
                     title: 'Detalle de Incidencia',
                     headerBackTitle: 'Atrás'
+                }}
+            />
+            <Stack.Screen
+                name="RegisterSede"
+                component={RegisterSedeScreen}
+                options={{
+                    headerShown: true,
+                    title: 'Sede',
+                    headerBackTitle: 'Atrás',
                 }}
             />
         </Stack.Navigator >

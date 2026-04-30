@@ -4,6 +4,14 @@ export interface UserArea {
   [key: string]: any;
 }
 
+export interface Sede {
+  _id: string;
+  nombre: string;
+  latitude: number;
+  longitude: number;
+  radio: number;
+}
+
 export interface User {
   _id: string;
   name: string;
@@ -14,6 +22,7 @@ export interface User {
   phone?: string;
   dni?: string;
   areas?: Array<UserArea | string>;
+  sede?: Sede | null;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -140,4 +149,5 @@ export type RootStackParamList = {
   'voice-expense': undefined;
   ImageAnnotation: { imageUri: string; returnScreen: string };
   DetalleIncidenciaAsignada: { id: string };
+  RegisterSede: undefined;
 };

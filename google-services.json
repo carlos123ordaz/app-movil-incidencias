@@ -16,6 +16,31 @@
       "api_key": [
         {
           "current_key": "AIzaSyDJhtL5UceRIIUTNSxofkE7ymFsoMyt6To"
+        },
+        {
+          "current_key": "AIzaSyBiQJxNmszv_Hyml68wdpVtFFIqtdi079E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:876228394061:android:3dfaca2dc742dd6543f004",
+        "android_client_info": {
+          "package_name": "com.carlosordazhoyos.corsusa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJhtL5UceRIIUTNSxofkE7ymFsoMyt6To"
+        },
+        {
+          "current_key": "AIzaSyBiQJxNmszv_Hyml68wdpVtFFIqtdi079E"
         }
       ],
       "services": {

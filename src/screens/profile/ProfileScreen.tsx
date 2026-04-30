@@ -19,6 +19,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useToast } from '../../contexts/ToastContext';
 import { UserArea } from '../../types';
 
+interface TappableInfoItemProps {
+    icon: string;
+    title: string;
+    subtitle?: string;
+    onPress: () => void;
+}
+
 interface MenuItemProps {
     icon: string;
     title: string;
@@ -104,6 +111,19 @@ export default function ProfileScreen() {
         </View>
     );
 
+    const TappableInfoItem = ({ icon, title, subtitle, onPress }: TappableInfoItemProps) => (
+        <TouchableOpacity style={styles.infoItem} onPress={onPress} activeOpacity={0.7}>
+            <View style={styles.infoIconContainer}>
+                <Ionicons name={icon as any} size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.infoTextContainer}>
+                <Text style={styles.infoTitle}>{title}</Text>
+                <Text style={styles.infoSubtitle}>{subtitle || 'Sin sede asignada'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+    );
+
     return (
         <ScrollView
             refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
@@ -136,6 +156,14 @@ export default function ProfileScreen() {
                 <InfoItem icon="person-outline" title="Cargo" subtitle={userData?.position} />
                 <InfoItem icon="call-outline" title="Teléfono" subtitle={userData?.phone} />
                 <InfoItem icon="card-outline" title="DNI" subtitle={userData?.dni} />
+                <TappableInfoItem
+                    icon="location-outline"
+                    title="Sede Actual"
+                    subtitle={typeof userData?.sede === 'object' && userData?.sede?.nombre
+                        ? userData.sede.nombre
+                        : undefined}
+                    onPress={() => navigation.navigate('RegisterSede')}
+                />
             </View>
 
             <View style={styles.section}>

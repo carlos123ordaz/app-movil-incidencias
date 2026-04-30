@@ -2,7 +2,7 @@ import type { ExpoConfig } from 'expo/config';
 
 const config: { expo: ExpoConfig } = {
   expo: {
-    name: 'Viaticos',
+    name: 'Corsusa',
     scheme: 'corsusa',
     slug: 'viaticoscorsusa',
     version: '1.0.0',
@@ -23,11 +23,11 @@ const config: { expo: ExpoConfig } = {
         NSLocationWhenInUseUsageDescription: 'Necesitamos tu ubicacion para registrar tu asistencia',
         ITSAppUsesNonExemptEncryption: false,
       },
-      bundleIdentifier: 'com.carlosordazhoyos.appviaticos',
+      bundleIdentifier: 'com.carlosordazhoyos.corsusa',
       googleServicesFile: './GoogleService-Info.plist',
     },
     android: {
-      package: 'com.carlosordazhoyos.appviaticos',
+      package: 'com.carlosordazhoyos.corsusa',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
