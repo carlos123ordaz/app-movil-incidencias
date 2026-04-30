@@ -1,5 +1,15 @@
-import { useContext, useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { useContext, useEffect, useRef, useState } from 'react';
+import {
+    View,
+    StyleSheet,
+    ActivityIndicator,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform,
+    TouchableWithoutFeedback,
+    Keyboard,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -19,6 +29,12 @@ export default function RegisterSedeScreen() {
     const [step, setStep] = useState<Step>('locating');
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [sedeName, setSedeName] = useState('');
+    const inputRef = useRef<TextInput>(null);
+
+    const alreadyHasSede = !!userData?.sede;
+    const existingName = typeof userData?.sede === 'object' ? userData.sede?.nombre ?? '' : '';
 
     useEffect(() => {
         requestLocation();
@@ -43,11 +59,21 @@ export default function RegisterSedeScreen() {
         }
     };
 
+    const openModal = () => {
+        setSedeName(existingName);
+        setModalVisible(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+    };
+
     const handleConfirm = async () => {
+        const nombre = sedeName.trim();
+        if (!nombre) return;
         if (!coords || !userData?._id) return;
+
+        setModalVisible(false);
         setStep('registering');
         try {
-            await registerSedeFromDevice(userData._id, coords.latitude, coords.longitude);
+            await registerSedeFromDevice(userData._id, coords.latitude, coords.longitude, nombre);
             await refreshUserData?.();
             toastSuccess('Sede registrada correctamente');
             navigation.goBack();
@@ -56,8 +82,6 @@ export default function RegisterSedeScreen() {
             setStep('confirm');
         }
     };
-
-    const alreadyHasSede = !!userData?.sede;
 
     return (
         <View style={styles.container}>
@@ -84,7 +108,7 @@ export default function RegisterSedeScreen() {
                                 ? 'Se actualizará la sede usando tu ubicación actual.'
                                 : 'Se registrará una nueva sede usando tu ubicación actual.'}
                         </Text>
-                        <TouchableOpacity style={styles.primaryButton} onPress={handleConfirm}>
+                        <TouchableOpacity style={styles.primaryButton} onPress={openModal}>
                             <Text style={styles.primaryButtonText}>
                                 {alreadyHasSede ? 'Actualizar sede' : 'Registrar sede'}
                             </Text>
@@ -117,6 +141,59 @@ export default function RegisterSedeScreen() {
                     </>
                 )}
             </View>
+
+            <Modal
+                visible={modalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={styles.overlay}>
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        >
+                            <TouchableWithoutFeedback>
+                                <View style={styles.modalCard}>
+                                    <Text style={styles.modalTitle}>Nombre de la sede</Text>
+                                    <Text style={styles.modalSubtitle}>
+                                        Ingresa un nombre para identificar esta sede.
+                                    </Text>
+                                    <TextInput
+                                        ref={inputRef}
+                                        style={styles.input}
+                                        value={sedeName}
+                                        onChangeText={setSedeName}
+                                        placeholder="Ej: Sede Principal"
+                                        placeholderTextColor="#9CA3AF"
+                                        maxLength={60}
+                                        returnKeyType="done"
+                                        onSubmitEditing={handleConfirm}
+                                    />
+                                    <View style={styles.modalActions}>
+                                        <TouchableOpacity
+                                            style={styles.modalCancelButton}
+                                            onPress={() => setModalVisible(false)}
+                                        >
+                                            <Text style={styles.modalCancelText}>Cancelar</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.modalConfirmButton,
+                                                !sedeName.trim() && styles.modalConfirmDisabled,
+                                            ]}
+                                            onPress={handleConfirm}
+                                            disabled={!sedeName.trim()}
+                                        >
+                                            <Text style={styles.modalConfirmText}>Confirmar</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </KeyboardAvoidingView>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 }
@@ -198,5 +275,72 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 24,
         lineHeight: 20,
+    },
+    // Modal
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'center',
+        paddingHorizontal: 28,
+    },
+    modalCard: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 24,
+    },
+    modalTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 6,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: '#6B7280',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    input: {
+        borderWidth: 1.5,
+        borderColor: '#E5E7EB',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#111827',
+        marginBottom: 20,
+        backgroundColor: '#F9FAFB',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    modalCancelButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 10,
+        borderWidth: 1.5,
+        borderColor: '#E5E7EB',
+        alignItems: 'center',
+    },
+    modalCancelText: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#6B7280',
+    },
+    modalConfirmButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 10,
+        backgroundColor: '#3B82F6',
+        alignItems: 'center',
+    },
+    modalConfirmDisabled: {
+        backgroundColor: '#BFDBFE',
+    },
+    modalConfirmText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: 'white',
     },
 });
